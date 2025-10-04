@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import uiBackground from '../assets/ui.png';
+import uiBackground from '../assets/nui.png';
 
 function HomePage() {
   const navigate = useNavigate();
@@ -16,9 +16,9 @@ function HomePage() {
     }}>
       <div className="homepage-content">
         <div className="center-container">
-          <h1 className="title-text">Scam Detector</h1>
+          <h1 className="title-text">Scamsters</h1>
           <button className="play-button" onClick={() => navigate('/game')}>
-            <span className="button-text">PLAY</span>
+            <span className="button-text">PLAY/Explore Scammers</span>
           </button>
         </div>
       </div>

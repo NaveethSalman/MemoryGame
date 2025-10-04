@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import gameBackground from '../assets/game.jpg';
+import gameBackground from '../assets/mui2.png';
 import senthiImg from '../assets/senthi.jpg';
 import tenImg from '../assets/ten.jpg';
 import veeranImg from '../assets/veeran.jpg';
@@ -101,6 +101,7 @@ function MemoryGame() {
     setFlippedTiles([]);
     setMatchedPairs(0);
     setMoves(0);
+    setToasts([]);
     setCountdown(4);
 
     // Start countdown
@@ -267,9 +268,14 @@ function MemoryGame() {
             </div>
           ))}
         </div>
-        <button onClick={() => navigate('/')} className="back-button">
-          Back to Home
-        </button>
+        <div className="button-container">
+          <button onClick={initializeGame} className="back-button">
+            Reset / Play Again
+          </button>
+          <button onClick={() => navigate('/')} className="back-button">
+            Back to Home
+          </button>
+        </div>
       </div>
     </div>
   );
