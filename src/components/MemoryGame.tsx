@@ -1,0 +1,278 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import gameBackground from '../assets/game.jpg';
+import senthiImg from '../assets/senthi.jpg';
+import tenImg from '../assets/ten.jpg';
+import veeranImg from '../assets/veeran.jpg';
+
+interface Tile {
+  id: number;
+  value: string;
+  isFlipped: boolean;
+  isMatched: boolean;
+  type: 'image' | 'emoji';
+  description?: string;
+}
+
+interface Toast {
+  id: number;
+  message: string;
+  emoji: string;
+  type: 'success' | 'error';
+}
+
+function MemoryGame() {
+  const navigate = useNavigate();
+  const [tiles, setTiles] = useState<Tile[]>([]);
+  const [flippedTiles, setFlippedTiles] = useState<number[]>([]);
+  const [isChecking, setIsChecking] = useState(false);
+  const [matchedPairs, setMatchedPairs] = useState(0);
+  const [moves, setMoves] = useState(0);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  // Define image tiles (4 pairs = 8 tiles)
+  const imageTiles = [
+    {
+      value: senthiImg,
+      type: 'image' as const,
+      description: "Meet Senthil! He's a curious and adventurous boy who loves to explore and learn new things!"
+    },
+    {
+      value: tenImg,
+      type: 'image' as const,
+      description: "This is Ten! A playful and energetic boy who brings joy wherever he goes!"
+    },
+    {
+      value: veeranImg,
+      type: 'image' as const,
+      description: "Say hello to Veeran! He's creative and imaginative, always coming up with new games to play!"
+    },
+    {
+      value: senthiImg,
+      type: 'image' as const,
+      description: "Meet Senthil! He's a curious and adventurous boy who loves to explore and learn new things!"
+    }
+  ];
+
+  // Define emoji tiles (14 pairs = 28 tiles)
+  const emojiTiles = [
+    { value: '🎮', type: 'emoji' as const },
+    { value: '🎲', type: 'emoji' as const },
+    { value: '🎯', type: 'emoji' as const },
+    { value: '🎪', type: 'emoji' as const },
+    { value: '🎨', type: 'emoji' as const },
+    { value: '🎭', type: 'emoji' as const },
+    { value: '🎸', type: 'emoji' as const },
+    { value: '🎺', type: 'emoji' as const },
+    { value: '🎵', type: 'emoji' as const },
+    { value: '🎬', type: 'emoji' as const },
+    { value: '🎤', type: 'emoji' as const },
+    { value: '🎧', type: 'emoji' as const },
+    { value: '🎹', type: 'emoji' as const },
+    { value: '🎷', type: 'emoji' as const }
+  ];
+
+  useEffect(() => {
+    initializeGame();
+  }, []);
+
+  const initializeGame = () => {
+    // Create pairs of all tiles
+    const allTiles = [
+      ...imageTiles, ...imageTiles,  // 8 image tiles (4 pairs)
+      ...emojiTiles, ...emojiTiles   // 28 emoji tiles (14 pairs)
+    ];
+
+    // Shuffle using Fisher-Yates algorithm
+    const shuffledTiles = allTiles.map((tile, index) => ({
+      ...tile,
+      id: index,
+      isFlipped: true,  // Start with all tiles flipped
+      isMatched: false
+    }));
+
+    for (let i = shuffledTiles.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledTiles[i], shuffledTiles[j]] = [shuffledTiles[j], shuffledTiles[i]];
+    }
+
+    setTiles(shuffledTiles);
+    setFlippedTiles([]);
+    setMatchedPairs(0);
+    setMoves(0);
+    setCountdown(4);
+
+    // Start countdown
+    const countdownInterval = setInterval(() => {
+      setCountdown(current => {
+        if (current === null || current <= 1) {
+          clearInterval(countdownInterval);
+          return null;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    // After 4 seconds, flip all tiles back
+    setTimeout(() => {
+      setTiles(currentTiles =>
+        currentTiles.map(tile => ({
+          ...tile,
+          isFlipped: false
+        }))
+      );
+      setCountdown(null);
+    }, 4000);
+  };
+
+  const showToast = (tile: Tile, isMatch: boolean) => {
+    if (!isMatch) return;
+
+    const robotMessages = [
+      { message: "ANALYZING MATCH...", emoji: "🤖" },
+      { message: "PROCESSING DATA...", emoji: "⚡" },
+      { message: "MATCH DETECTED!", emoji: "✨" }
+    ];
+
+    const robotResponse = robotMessages[Math.floor(Math.random() * robotMessages.length)];
+    const message = tile.type === 'image' && tile.description
+      ? `${robotResponse.message}\n>> ${tile.description}`
+      : `${robotResponse.message}\n>> MATCH_TYPE: ${tile.value}`;
+
+    const newToast: Toast = {
+      id: Date.now(),
+      message,
+      emoji: tile.type === 'image' ? '🤖' : robotResponse.emoji,
+      type: 'success' as const
+    };
+
+    setToasts(prev => [...prev, newToast]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(toast => toast.id !== newToast.id));
+    }, 3000);
+  };
+
+  const handleTileClick = (clickedTile: Tile) => {
+    if (
+      isChecking ||
+      clickedTile.isFlipped ||
+      clickedTile.isMatched ||
+      flippedTiles.length === 2
+    ) {
+      return;
+    }
+
+    const newFlippedTiles = [...flippedTiles, clickedTile.id];
+    setFlippedTiles(newFlippedTiles);
+
+    setTiles(currentTiles =>
+      currentTiles.map(tile =>
+        tile.id === clickedTile.id ? { ...tile, isFlipped: true } : tile
+      )
+    );
+
+    if (newFlippedTiles.length === 2) {
+      setIsChecking(true);
+      setMoves(moves => moves + 1);
+
+      const [firstTileId, secondTileId] = newFlippedTiles;
+      const firstTile = tiles.find(tile => tile.id === firstTileId);
+      const secondTile = tiles.find(tile => tile.id === secondTileId);
+
+      if (firstTile && secondTile && firstTile.value === secondTile.value) {
+        setTimeout(() => {
+          setTiles(currentTiles =>
+            currentTiles.map(tile =>
+              newFlippedTiles.includes(tile.id)
+                ? { ...tile, isMatched: true }
+                : tile
+            )
+          );
+          setMatchedPairs(pairs => pairs + 1);
+          setFlippedTiles([]);
+          setIsChecking(false);
+          showToast(firstTile, true);
+        }, 500);
+      } else {
+        setTimeout(() => {
+          setTiles(currentTiles =>
+            currentTiles.map(tile =>
+              newFlippedTiles.includes(tile.id)
+                ? { ...tile, isFlipped: false }
+                : tile
+            )
+          );
+          setFlippedTiles([]);
+          setIsChecking(false);
+        }, 1000);
+      }
+    }
+  };
+
+  return (
+    <div className="page-container" style={{ backgroundImage: `url(${gameBackground})` }}>
+      <div className="game-content">
+        <div className="toast-container">
+          {toasts.map(toast => (
+            <div key={toast.id} className={`toast ${toast.type}`}>
+              <span className="toast-emoji">{toast.emoji}</span>
+              <div className="toast-message">{toast.message}</div>
+            </div>
+          ))}
+        </div>
+        <h1>Memory Match Game</h1>
+        <div className="game-stats">
+          <p>Moves: {moves}</p>
+          <p>Matches: {matchedPairs} / 18</p>
+          {countdown !== null && (
+            <p className="countdown">Memorize tiles: {countdown}s</p>
+          )}
+        </div>
+        {matchedPairs === 18 && (
+          <div className="win-message">
+            <h2>🎉 Congratulations! You've won! 🎉</h2>
+            <p>You completed the game in {moves} moves!</p>
+            <button onClick={initializeGame} className="reset-button">
+              Play Again
+            </button>
+          </div>
+        )}
+        <div className="game-board">
+          {tiles.map((tile) => (
+            <div
+              key={tile.id}
+              className={`tile ${tile.isFlipped || tile.isMatched ? 'flipped' : ''} ${
+                tile.isMatched ? 'matched' : ''
+              }`}
+              onClick={() => handleTileClick(tile)}
+            >
+              <div className="tile-inner">
+                <div className="tile-front">?</div>
+                <div className="tile-back">
+                  {tile.type === 'image' ? (
+                    <div className="tile-image-wrapper">
+                      <img
+                        src={tile.value}
+                        alt="Memory card"
+                        className="tile-image"
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : (
+                    <div className="tile-emoji">{tile.value}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={() => navigate('/')} className="back-button">
+          Back to Home
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default MemoryGame;
