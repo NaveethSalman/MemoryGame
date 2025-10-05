@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import gameBackground from '../assets/mui2.png';
 import senthiImg from '../assets/senthi.jpg';
 import tenImg from '../assets/ten.jpg';
-import veeranImg from '../assets/veeran.jpg';
+// import veeranImg from '../assets/veeran.jpg';
 
 interface Tile {
   id: number;
@@ -32,7 +32,7 @@ function MemoryGame() {
   const [countdown, setCountdown] = useState<number | null>(null);
   const [timer, setTimer] = useState(0);
   const [isGameActive, setIsGameActive] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   // Define image tiles (2 pairs = 4 tiles)
   const imageTiles = [
