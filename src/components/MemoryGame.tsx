@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gameBackground from '../assets/mui2.png';
 import senthiImg from '../assets/senthi.jpg';
@@ -30,8 +30,11 @@ function MemoryGame() {
   const [moves, setMoves] = useState(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [timer, setTimer] = useState(0);
+  const [isGameActive, setIsGameActive] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Define image tiles (4 pairs = 8 tiles)
+  // Define image tiles (2 pairs = 4 tiles)
   const imageTiles = [
     {
       value: senthiImg,
@@ -42,53 +45,57 @@ function MemoryGame() {
       value: tenImg,
       type: 'image' as const,
       description: "This is Ten! A playful and energetic boy who brings joy wherever he goes!"
-    },
-    {
-      value: veeranImg,
-      type: 'image' as const,
-      description: "Say hello to Veeran! He's creative and imaginative, always coming up with new games to play!"
-    },
-    {
-      value: senthiImg,
-      type: 'image' as const,
-      description: "Meet Senthil! He's a curious and adventurous boy who loves to explore and learn new things!"
     }
   ];
 
-  // Define emoji tiles (14 pairs = 28 tiles)
+  // Define emoji tiles (6 pairs = 12 tiles)
   const emojiTiles = [
     { value: '🎮', type: 'emoji' as const },
     { value: '🎲', type: 'emoji' as const },
     { value: '🎯', type: 'emoji' as const },
     { value: '🎪', type: 'emoji' as const },
     { value: '🎨', type: 'emoji' as const },
-    { value: '🎭', type: 'emoji' as const },
-    { value: '🎸', type: 'emoji' as const },
-    { value: '🎺', type: 'emoji' as const },
-    { value: '🎵', type: 'emoji' as const },
-    { value: '🎬', type: 'emoji' as const },
-    { value: '🎤', type: 'emoji' as const },
-    { value: '🎧', type: 'emoji' as const },
-    { value: '🎹', type: 'emoji' as const },
-    { value: '🎷', type: 'emoji' as const }
+    { value: '🎭', type: 'emoji' as const }
   ];
 
   useEffect(() => {
     initializeGame();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
   }, []);
 
+  useEffect(() => {
+    if (isGameActive) {
+      timerRef.current = setInterval(() => {
+        setTimer(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isGameActive]);
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const initializeGame = () => {
-    // Create pairs of all tiles
+    // Create pairs of all tiles (16 total)
     const allTiles = [
-      ...imageTiles, ...imageTiles,  // 8 image tiles (4 pairs)
-      ...emojiTiles, ...emojiTiles   // 28 emoji tiles (14 pairs)
+      ...imageTiles, ...imageTiles,  // 4 image tiles (2 pairs)
+      ...emojiTiles, ...emojiTiles   // 12 emoji tiles (6 pairs)
     ];
 
     // Shuffle using Fisher-Yates algorithm
     const shuffledTiles = allTiles.map((tile, index) => ({
       ...tile,
       id: index,
-      isFlipped: true,  // Start with all tiles flipped
+      isFlipped: true,
       isMatched: false
     }));
 
@@ -103,6 +110,8 @@ function MemoryGame() {
     setMoves(0);
     setToasts([]);
     setCountdown(4);
+    setTimer(0);
+    setIsGameActive(false);
 
     // Start countdown
     const countdownInterval = setInterval(() => {
@@ -115,7 +124,7 @@ function MemoryGame() {
       });
     }, 1000);
 
-    // After 4 seconds, flip all tiles back
+    // After 4 seconds, flip all tiles back and start the game
     setTimeout(() => {
       setTiles(currentTiles =>
         currentTiles.map(tile => ({
@@ -124,6 +133,7 @@ function MemoryGame() {
         }))
       );
       setCountdown(null);
+      setIsGameActive(true);
     }, 4000);
   };
 
@@ -159,7 +169,8 @@ function MemoryGame() {
       isChecking ||
       clickedTile.isFlipped ||
       clickedTile.isMatched ||
-      flippedTiles.length === 2
+      flippedTiles.length === 2 ||
+      !isGameActive
     ) {
       return;
     }
@@ -190,10 +201,16 @@ function MemoryGame() {
                 : tile
             )
           );
-          setMatchedPairs(pairs => pairs + 1);
+          const newMatchedPairs = matchedPairs + 1;
+          setMatchedPairs(newMatchedPairs);
           setFlippedTiles([]);
           setIsChecking(false);
           showToast(firstTile, true);
+          
+          // Check if game is complete
+          if (newMatchedPairs === 8) {
+            setIsGameActive(false);
+          }
         }, 500);
       } else {
         setTimeout(() => {
@@ -224,19 +241,26 @@ function MemoryGame() {
         </div>
         <h1>Memory Match Game</h1>
         <div className="game-stats">
+          <p>Time: {formatTime(timer)}</p>
           <p>Moves: {moves}</p>
-          <p>Matches: {matchedPairs} / 18</p>
+          <p>Matches: {matchedPairs} / 8</p>
           {countdown !== null && (
-            <p className="countdown">Memorize tiles: {countdown}s</p>
+            <p className="countdown">Memorize: {countdown}s</p>
           )}
         </div>
-        {matchedPairs === 18 && (
+        {matchedPairs === 8 && (
           <div className="win-message">
-            <h2>🎉 Congratulations! You've won! 🎉</h2>
-            <p>You completed the game in {moves} moves!</p>
-            <button onClick={initializeGame} className="reset-button">
-              Play Again
-            </button>
+            <h2>🎉 Congratulations! 🎉</h2>
+            <p>Time: {formatTime(timer)}</p>
+            <p>Moves: {moves}</p>
+            <div className="win-buttons">
+              <button onClick={initializeGame} className="win-button">
+                Play Again
+              </button>
+              <button onClick={() => navigate('/')} className="win-button next-button">
+                Next Game →
+              </button>
+            </div>
           </div>
         )}
         <div className="game-board">
