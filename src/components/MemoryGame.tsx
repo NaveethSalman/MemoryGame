@@ -4,6 +4,7 @@ import gameBackground from '../assets/mui2.png';
 import senthiImg from '../assets/senthi.jpg';
 import tenImg from '../assets/ten.jpg';
 // import veeranImg from '../assets/veeran.jpg';
+import { getHighScore, saveHighScore, formatTime, calculateScore } from '../utils/score';
 
 interface Tile {
   id: number;
@@ -30,9 +31,12 @@ function MemoryGame() {
   const [moves, setMoves] = useState(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [timer, setTimer] = useState(0);
+  const [timer, setTimer] = useState(300); // 5 minutes = 300 seconds
   const [isGameActive, setIsGameActive] = useState(false);
+  const [isGameOver, setIsGameOver] = useState(false);
+  const [isNewHighScore, setIsNewHighScore] = useState(false);
   const timerRef = useRef<number | null>(null);
+  const highScore = getHighScore();
 
   // Define image tiles (2 pairs = 4 tiles)
   const imageTiles = [
@@ -66,9 +70,16 @@ function MemoryGame() {
   }, []);
 
   useEffect(() => {
-    if (isGameActive) {
-      timerRef.current = setInterval(() => {
-        setTimer(prev => prev + 1);
+    if (isGameActive && timer > 0) {
+      timerRef.current = window.setInterval(() => {
+        setTimer(prev => {
+          if (prev <= 1) {
+            setIsGameActive(false);
+            setIsGameOver(true);
+            return 0;
+          }
+          return prev - 1;
+        });
       }, 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -76,13 +87,7 @@ function MemoryGame() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isGameActive]);
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, [isGameActive, timer]);
 
   const initializeGame = () => {
     // Create pairs of all tiles (16 total)
@@ -110,8 +115,10 @@ function MemoryGame() {
     setMoves(0);
     setToasts([]);
     setCountdown(4);
-    setTimer(0);
+    setTimer(300); // Reset to 5 minutes
     setIsGameActive(false);
+    setIsGameOver(false);
+    setIsNewHighScore(false);
 
     // Start countdown
     const countdownInterval = setInterval(() => {
@@ -170,10 +177,13 @@ function MemoryGame() {
       clickedTile.isFlipped ||
       clickedTile.isMatched ||
       flippedTiles.length === 2 ||
-      !isGameActive
+      !isGameActive ||
+      isGameOver
     ) {
       return;
     }
+
+    setMoves(moves => moves + 1);
 
     const newFlippedTiles = [...flippedTiles, clickedTile.id];
     setFlippedTiles(newFlippedTiles);
@@ -186,7 +196,6 @@ function MemoryGame() {
 
     if (newFlippedTiles.length === 2) {
       setIsChecking(true);
-      setMoves(moves => moves + 1);
 
       const [firstTileId, secondTileId] = newFlippedTiles;
       const firstTile = tiles.find(tile => tile.id === firstTileId);
@@ -210,6 +219,9 @@ function MemoryGame() {
           // Check if game is complete
           if (newMatchedPairs === 8) {
             setIsGameActive(false);
+            const elapsedTime = 300 - timer;
+            const isNewHigh = saveHighScore(elapsedTime, moves + 1);
+            setIsNewHighScore(isNewHigh);
           }
         }, 500);
       } else {
@@ -228,6 +240,12 @@ function MemoryGame() {
     }
   };
 
+  const getTimerColor = () => {
+    if (timer <= 30) return '#ff4444'; // Red
+    if (timer <= 60) return '#ffaa00'; // Orange
+    return '#64ffda'; // Default green
+  };
+
   return (
     <div className="page-container" style={{ backgroundImage: `url(${gameBackground})` }}>
       <div className="game-content">
@@ -241,18 +259,29 @@ function MemoryGame() {
         </div>
         <h1>Memory Match Game</h1>
         <div className="game-stats">
-          <p>Time: {formatTime(timer)}</p>
+          <p style={{ color: getTimerColor(), fontWeight: 'bold' }}>
+            Time: {formatTime(timer)}
+          </p>
           <p>Moves: {moves}</p>
           <p>Matches: {matchedPairs} / 8</p>
           {countdown !== null && (
             <p className="countdown">Memorize: {countdown}s</p>
           )}
         </div>
-        {matchedPairs === 8 && (
+
+        {highScore && (
+          <div className="high-score-display">
+            <p>🏆 Best Score: {formatTime(highScore.time)} | {highScore.moves} moves</p>
+          </div>
+        )}
+
+        {matchedPairs === 8 && !isGameOver && (
           <div className="win-message">
             <h2>🎉 Congratulations! 🎉</h2>
-            <p>Time: {formatTime(timer)}</p>
+            {isNewHighScore && <p className="new-high-score">🌟 NEW HIGH SCORE! 🌟</p>}
+            <p>Time: {formatTime(300 - timer)}</p>
             <p>Moves: {moves}</p>
+            <p>Score: {calculateScore(300 - timer, moves)}</p>
             <div className="win-buttons">
               <button onClick={initializeGame} className="win-button">
                 Play Again
@@ -263,6 +292,24 @@ function MemoryGame() {
             </div>
           </div>
         )}
+
+        {isGameOver && matchedPairs < 8 && (
+          <div className="win-message game-over-message">
+            <h2>⏰ Time's Up! ⏰</h2>
+            <p>You ran out of time!</p>
+            <p>Matches: {matchedPairs} / 8</p>
+            <p>Moves: {moves}</p>
+            <div className="win-buttons">
+              <button onClick={initializeGame} className="win-button">
+                Retry
+              </button>
+              <button onClick={() => navigate('/')} className="win-button">
+                Back to Home
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="game-board">
           {tiles.map((tile) => (
             <div
